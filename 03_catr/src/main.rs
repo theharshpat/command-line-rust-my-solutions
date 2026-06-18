@@ -11,19 +11,29 @@ struct Args {
     #[arg(value_name = "FILE", default_value = "-")]
     files: Vec<String>,
 
-    #[arg(short, long, conflicts_with = "number_nonblank")]
-    numbers: bool,
+    #[arg(short, long = "number", conflicts_with = "number_nonblank")]
+    number_lines: bool,
 
     #[arg(long, short = 'b')]
     number_nonblank: bool,
 }
 
+fn open(file: &str) -> Result<Box<dyn BufRead>> {
+    if file == "-" {
+        Ok(Box::new(BufReader::new(io::stdin())))
+    } else {
+        Ok(Box::new(BufReader::new(File::open(file)?)))
+    }
+}
+
 fn run(args: Args) -> Result<()> {
     for file in &args.files {
-        let reader: Box<dyn BufRead> = if file == "-" {
-            Box::new(BufReader::new(io::stdin()))
-        } else {
-            Box::new(BufReader::new(File::open(file)?))
+        let reader: Box<dyn BufRead> = match open(file) {
+            Ok(reader) => reader,
+            Err(e) => {
+                eprintln!("{file}: {e}");
+                continue;
+            }
         };
 
         let mut non_blank_line_count_so_far = 0;
@@ -31,7 +41,7 @@ fn run(args: Args) -> Result<()> {
         for (idx, line) in reader.lines().enumerate() {
             let line = line?;
 
-            if args.numbers {
+            if args.number_lines {
                 println!("{:>6}\t{}", idx + 1, line);
                 continue;
             }
