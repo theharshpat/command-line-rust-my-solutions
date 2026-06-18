@@ -28,7 +28,7 @@ struct Args {
     chars: bool,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive()]
 struct FileInfo {
     num_lines: usize,
     num_words: usize,
@@ -61,13 +61,17 @@ fn run(mut args: Args) -> Result<()> {
     }
 
     for filename in &args.files {
-        let reader = open(&filename)?;
-        let info = count(reader);
-        print_info(&info, &args, &filename);
-        total.num_lines += info.num_lines;
-        total.num_words += info.num_words;
-        total.num_bytes += info.num_bytes;
-        total.num_chars += info.num_chars;
+        match open(filename) {
+            Err(err) => eprintln!("{filename}: {err}"),
+            Ok(reader) => {
+                let info = count(reader);
+                print_info(&info, &args, filename);
+                total.num_lines += info.num_lines;
+                total.num_words += info.num_words;
+                total.num_bytes += info.num_bytes;
+                total.num_chars += info.num_chars;
+            }
+        }
     }
     if args.files.len() > 1 {
         print_info(&total, &args, "total");
@@ -76,27 +80,22 @@ fn run(mut args: Args) -> Result<()> {
 }
 
 fn print_info(info: &FileInfo, args: &Args, filename: &str) {
-    println!(
-        "{}{}{} {}",
-        if args.lines {
-            format!("{:>8}", info.num_lines)
-        } else {
-            format!("")
-        },
-        if args.words {
-            format!("{:>8}", info.num_words)
-        } else {
-            format!("")
-        },
-        if args.bytes {
-            format!("{:>8}", info.num_bytes)
-        } else if args.chars {
-            format!("{:>8}", info.num_chars)
-        } else {
-            format!("")
-        },
-        filename
-    )
+    let mut output = String::new();
+    if args.lines {
+        output.push_str(&format!("{:>8}", info.num_lines));
+    }
+    if args.words {
+        output.push_str(&format!("{:>8}", info.num_words));
+    }
+    if args.bytes {
+        output.push_str(&format!("{:>8}", info.num_bytes));
+    } else if args.chars {
+        output.push_str(&format!("{:>8}", info.num_chars));
+    }
+    if filename != "-" {
+        output.push_str(&format!(" {filename}"));
+    }
+    println!("{output}");
 }
 
 fn count(mut reader: Box<dyn BufRead>) -> FileInfo {
