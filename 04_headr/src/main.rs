@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{self, BufRead, BufReader, Read},
+    io::{self, BufRead, BufReader, Read, Write},
 };
 
 use anyhow::Result;
@@ -32,37 +32,34 @@ fn open(filename: &str) -> Option<Box<dyn BufRead>> {
     }
 }
 
-fn head(mut reader: Box<dyn BufRead>, lines: u64, bytes: Option<u64>) -> Result<()> {
-    if let Some(bytes) = bytes {
+fn head(mut reader: Box<dyn BufRead>, args: &Args) -> Result<()> {
+    if let Some(bytes) = args.bytes {
         let mut buf = Vec::new();
         let mut reader = reader.take(bytes);
         reader.read_to_end(&mut buf)?;
-        print!("{}", String::from_utf8_lossy(&buf));
+        io::stdout().write_all(&buf)?;
     } else {
-        for _ in 0..lines {
-            let mut buf = String::new();
+        let mut buf = String::new();
+        for _ in 0..args.lines {
             let read_bytes = reader.read_line(&mut buf)?;
             if read_bytes == 0 {
                 break;
             }
-            print!("{}", buf);
+            io::stdout().write_all(buf.as_bytes())?;
+            buf.clear();
         }
     }
     Ok(())
 }
 
 fn run(args: Args) -> Result<()> {
-    let to_show_file_name_headers = args.files.len() > 1;
     let num_files = args.files.len();
     for (file_index, filename) in args.files.iter().enumerate() {
         if let Some(reader) = open(filename) {
-            if to_show_file_name_headers {
-                println!("==> {} <==", filename);
+            if num_files > 1 {
+                println!("{}==> {} <==", if file_index > 0 { "\n" } else { "" }, filename);
             }
-            head(reader, args.lines, args.bytes)?;
-            if to_show_file_name_headers && file_index < num_files - 1 {
-                println!();
-            }
+            head(reader, &args)?;
         }
     }
     Ok(())
