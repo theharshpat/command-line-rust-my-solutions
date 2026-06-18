@@ -28,12 +28,21 @@ struct Args {
     chars: bool,
 }
 
-#[derive()]
+#[derive(Debug, PartialEq, Default)]
 struct FileInfo {
     num_lines: usize,
     num_words: usize,
     num_bytes: usize,
     num_chars: usize,
+}
+
+impl std::ops::AddAssign for FileInfo {
+    fn add_assign(&mut self, other: Self) {
+        self.num_lines += other.num_lines;
+        self.num_words += other.num_words;
+        self.num_bytes += other.num_bytes;
+        self.num_chars += other.num_chars;
+    }
 }
 
 fn open(filename: &str) -> Result<Box<dyn BufRead>> {
@@ -44,16 +53,11 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
 }
 
 fn run(mut args: Args) -> Result<()> {
-    let mut total = FileInfo {
-        num_lines: 0,
-        num_words: 0,
-        num_bytes: 0,
-        num_chars: 0,
-    };
+    let mut total = FileInfo::default();
 
     if [args.lines, args.words, args.bytes, args.chars]
         .into_iter()
-        .all(|b| b == false)
+        .all(|b| !b)
     {
         args.lines = true;
         args.words = true;
@@ -63,14 +67,13 @@ fn run(mut args: Args) -> Result<()> {
     for filename in &args.files {
         match open(filename) {
             Err(err) => eprintln!("{filename}: {err}"),
-            Ok(reader) => {
-                let info = count(reader);
-                print_info(&info, &args, filename);
-                total.num_lines += info.num_lines;
-                total.num_words += info.num_words;
-                total.num_bytes += info.num_bytes;
-                total.num_chars += info.num_chars;
-            }
+            Ok(reader) => match count(reader) {
+                Ok(info) => {
+                    print_info(&info, &args, filename);
+                    total += info;
+                }
+                Err(err) => eprintln!("{filename}: {err}"),
+            },
         }
     }
     if args.files.len() > 1 {
@@ -98,17 +101,12 @@ fn print_info(info: &FileInfo, args: &Args, filename: &str) {
     println!("{output}");
 }
 
-fn count(mut reader: Box<dyn BufRead>) -> FileInfo {
-    let mut info = FileInfo {
-        num_lines: 0,
-        num_words: 0,
-        num_bytes: 0,
-        num_chars: 0,
-    };
+fn count(mut reader: Box<dyn BufRead>) -> Result<FileInfo> {
+    let mut info = FileInfo::default();
 
     let mut line = String::new();
     loop {
-        let line_bytes = reader.read_line(&mut line).unwrap();
+        let line_bytes = reader.read_line(&mut line)?;
         if line_bytes == 0 {
             break;
         }
@@ -118,12 +116,32 @@ fn count(mut reader: Box<dyn BufRead>) -> FileInfo {
         info.num_chars += line.chars().count();
         line.clear();
     }
-    info
+    Ok(info)
 }
 
 fn main() {
     if let Err(e) = run(Args::parse()) {
         eprintln!("Error: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{FileInfo, count};
+    use std::io::Cursor;
+
+    #[test]
+    fn test_count() {
+        let text = "I don't want the world.\nI just want your half.\r\n";
+        let info = count(Box::new(Cursor::new(text)));
+        assert!(info.is_ok());
+        let expected = FileInfo {
+            num_lines: 2,
+            num_words: 10,
+            num_chars: 48,
+            num_bytes: 48,
+        };
+        assert_eq!(info.unwrap(), expected);
     }
 }
