@@ -43,7 +43,7 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
     }
 }
 
-fn run(args: Args) -> Result<()> {
+fn run(mut args: Args) -> Result<()> {
     let mut total = FileInfo {
         num_lines: 0,
         num_words: 0,
@@ -51,9 +51,18 @@ fn run(args: Args) -> Result<()> {
         num_chars: 0,
     };
 
+    if [args.lines, args.words, args.bytes, args.chars]
+        .into_iter()
+        .all(|b| b == false)
+    {
+        args.lines = true;
+        args.words = true;
+        args.bytes = true;
+    }
+
     for filename in &args.files {
         let reader = open(&filename)?;
-        let info = count(reader, &args);
+        let info = count(reader);
         print_info(&info, &args, &filename);
         total.num_lines += info.num_lines;
         total.num_words += info.num_words;
@@ -90,7 +99,7 @@ fn print_info(info: &FileInfo, args: &Args, filename: &str) {
     )
 }
 
-fn count(reader: Box<dyn BufRead>, args: &Args) -> FileInfo {
+fn count(mut reader: Box<dyn BufRead>) -> FileInfo {
     let mut info = FileInfo {
         num_lines: 0,
         num_words: 0,
@@ -98,15 +107,17 @@ fn count(reader: Box<dyn BufRead>, args: &Args) -> FileInfo {
         num_chars: 0,
     };
 
-    for line in reader.lines() {
-        let line = line.unwrap();
+    let mut line = String::new();
+    loop {
+        let line_bytes = reader.read_line(&mut line).unwrap();
+        if line_bytes == 0 {
+            break;
+        }
         info.num_lines += 1;
         info.num_words += line.split_whitespace().count();
-        if args.chars {
-            info.num_chars += line.chars().count();
-        } else {
-            info.num_bytes += line.len();
-        }
+        info.num_bytes += line_bytes;
+        info.num_chars += line.chars().count();
+        line.clear();
     }
     info
 }
