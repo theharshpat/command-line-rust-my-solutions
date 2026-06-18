@@ -19,10 +19,16 @@ struct Args {
     bytes: Option<u64>,
 }
 
-fn open(filename: &str) -> Result<Box<dyn BufRead>> {
+fn open(filename: &str) -> Option<Box<dyn BufRead>> {
     match filename {
-        "-" => Ok(Box::new(BufReader::new(io::stdin()))),
-        _ => Ok(Box::new(BufReader::new(File::open(filename)?))),
+        "-" => Some(Box::new(BufReader::new(io::stdin()))),
+        _ => match File::open(filename) {
+            Ok(file) => Some(Box::new(BufReader::new(file))),
+            Err(err) => {
+                eprintln!("{}: {}", filename, err);
+                None
+            }
+        },
     }
 }
 
@@ -49,17 +55,13 @@ fn run(args: Args) -> Result<()> {
     let to_show_file_name_headers = args.files.len() > 1;
     let num_files = args.files.len();
     for (file_index, filename) in args.files.iter().enumerate() {
-        let reader_result = open(filename);
-        match reader_result {
-            Err(err) => eprintln!("{}: {}", filename, err),
-            Ok(reader) => {
-                if to_show_file_name_headers {
-                    println!("==> {} <==", filename);
-                }
-                head(reader, args.lines, args.bytes)?;
-                if to_show_file_name_headers && file_index < num_files - 1 {
-                    println!();
-                }
+        if let Some(reader) = open(filename) {
+            if to_show_file_name_headers {
+                println!("==> {} <==", filename);
+            }
+            head(reader, args.lines, args.bytes)?;
+            if to_show_file_name_headers && file_index < num_files - 1 {
+                println!();
             }
         }
     }
@@ -70,5 +72,37 @@ fn main() {
     if let Err(e) = run(Args::parse()) {
         eprintln!("Error: {}", e);
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::open;
+    use std::io::Read;
+
+    #[test]
+    fn open_valid_file_returns_some() {
+        let reader = open("./tests/inputs/one.txt");
+        assert!(reader.is_some());
+    }
+
+    #[test]
+    fn open_missing_file_returns_none() {
+        let reader = open("./does/not/exist.txt");
+        assert!(reader.is_none());
+    }
+
+    #[test]
+    fn open_valid_file_is_readable() {
+        let mut reader = open("./tests/inputs/twelve.txt").expect("file should open");
+        let mut content = String::new();
+        reader.read_to_string(&mut content).unwrap();
+        assert!(content.starts_with("one\n"));
+    }
+
+    #[test]
+    fn open_dash_yields_stdin_handle() {
+        let reader = open("-");
+        assert!(reader.is_some());
     }
 }
