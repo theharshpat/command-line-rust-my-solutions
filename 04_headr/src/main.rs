@@ -26,6 +26,25 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
     }
 }
 
+fn head(mut reader: Box<dyn BufRead>, lines: u64, bytes: Option<u64>) -> Result<()> {
+    if let Some(bytes) = bytes {
+        let mut buf = Vec::new();
+        let mut reader = reader.take(bytes);
+        reader.read_to_end(&mut buf)?;
+        print!("{}", String::from_utf8_lossy(&buf));
+    } else {
+        for _ in 0..lines {
+            let mut buf = String::new();
+            let read_bytes = reader.read_line(&mut buf)?;
+            if read_bytes == 0 {
+                break;
+            }
+            print!("{}", buf);
+        }
+    }
+    Ok(())
+}
+
 fn run(args: Args) -> Result<()> {
     let to_show_file_name_headers = args.files.len() > 1;
     let num_files = args.files.len();
@@ -33,26 +52,11 @@ fn run(args: Args) -> Result<()> {
         let reader_result = open(filename);
         match reader_result {
             Err(err) => eprintln!("{}: {}", filename, err),
-            Ok(mut reader) => {
+            Ok(reader) => {
                 if to_show_file_name_headers {
                     println!("==> {} <==", filename);
                 }
-                if args.bytes.is_some() {
-                    let bytes = args.bytes.unwrap();
-                    let mut buf = Vec::new();
-                    let mut reader = reader.take(bytes);
-                    reader.read_to_end(&mut buf)?;
-                    print!("{}", String::from_utf8_lossy(&buf));
-                } else {
-                    for _ in 0..args.lines {
-                        let mut buf = String::new();
-                        let read_bytes = reader.read_line(&mut buf).unwrap();
-                        if read_bytes == 0 {
-                            break;
-                        }
-                        print!("{}", buf);
-                    }
-                }
+                head(reader, args.lines, args.bytes)?;
                 if to_show_file_name_headers && file_index < num_files - 1 {
                     println!();
                 }
