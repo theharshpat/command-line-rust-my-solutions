@@ -23,11 +23,33 @@ struct Args {
 fn run(args: Args) -> Result<()> {
     let mut reader = open(&args.in_file)?;
     let mut buffer = String::new();
+
+    let mut prev = None;
+    let mut same_count = 0;
     while reader.read_line(&mut buffer)? > 0 {
-        // just print as it is
-        println!("{}", buffer);
+        if prev.clone().is_none() {
+            prev = Some(buffer.clone());
+            same_count = 1;
+        } else if buffer == prev.clone().unwrap() {
+            same_count += 1;
+        } else {
+            if args.count {
+                print!("{:>4} {}", same_count, prev.clone().unwrap());
+            } else {
+                print!("{}\n", prev.clone().unwrap());
+            }
+            prev = Some(buffer.clone());
+            same_count = 1;
+        }
         buffer.clear();
     }
+
+    if args.count {
+        print!("{:>4} {}\n", same_count, prev.clone().unwrap());
+    } else {
+        print!("{}", prev.clone().unwrap());
+    }
+    buffer.clear();
     Ok(())
 }
 
