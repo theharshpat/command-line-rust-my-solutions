@@ -1,7 +1,7 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use clap::Parser;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader, Write};
 
 #[derive(Debug, Parser)]
 #[command(version)]
@@ -21,35 +21,48 @@ struct Args {
 }
 
 fn run(args: Args) -> Result<()> {
-    let mut reader = open(&args.in_file)?;
-    let mut buffer = String::new();
+    let mut file = open(&args.in_file).map_err(|e| anyhow!("{}: {e}", args.in_file))?;
+
+    let mut writer =
+        write(&args.out_file).map_err(|e| anyhow!("{}: {e}", args.out_file.unwrap()))?;
+
+    let mut line = String::new();
 
     let mut prev = None;
     let mut same_count = 0;
-    while reader.read_line(&mut buffer)? > 0 {
+
+    loop {
+        let bytes_read = file.read_line(&mut line)?;
+        if bytes_read == 0 {
+            break;
+        }
+
         if prev.clone().is_none() {
-            prev = Some(buffer.clone());
+            prev = Some(line.clone());
             same_count = 1;
-        } else if buffer == prev.clone().unwrap() {
+        } else if line.trim_end() == prev.clone().unwrap().trim_end() {
             same_count += 1;
         } else {
             if args.count {
-                print!("{:>4} {}", same_count, prev.clone().unwrap());
+                write!(writer, "{:>4} {}", same_count, prev.clone().unwrap())?;
             } else {
-                print!("{}\n", prev.clone().unwrap());
+                write!(writer, "{}", prev.clone().unwrap())?;
             }
-            prev = Some(buffer.clone());
+            prev = Some(line.clone());
             same_count = 1;
         }
-        buffer.clear();
+
+        line.clear();
     }
 
-    if args.count {
-        print!("{:>4} {}\n", same_count, prev.clone().unwrap());
-    } else {
-        print!("{}", prev.clone().unwrap());
+    if prev.clone().is_some() {
+        if args.count {
+            write!(writer, "{:>4} {}", same_count, prev.clone().unwrap())?;
+        } else {
+            write!(writer, "{}", prev.clone().unwrap())?;
+        }
     }
-    buffer.clear();
+
     Ok(())
 }
 
@@ -60,9 +73,16 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
     }
 }
 
+fn write(filename: &Option<String>) -> Result<Box<dyn Write>> {
+    match filename {
+        None => Ok(Box::new(io::stdout())),
+        Some(filename) => Ok(Box::new(File::create(filename)?)),
+    }
+}
+
 fn main() {
     if let Err(e) = run(Args::parse()) {
-        eprintln!("Error: {e}");
+        eprintln!("{e}");
         std::process::exit(1);
     }
 }
