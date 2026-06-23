@@ -48,8 +48,34 @@ fn dies_bad_name() -> Result<()> {
 
 // --------------------------------------------------
 #[test]
+fn dies_bare_name() -> Result<()> {
+    Command::cargo_bin(PRG)?
+        .args(["--name"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "a value is required for '--name <NAME>...'",
+        ));
+    Ok(())
+}
+
+// --------------------------------------------------
+#[test]
+fn dies_bare_type() -> Result<()> {
+    Command::cargo_bin(PRG)?
+        .args(["--type"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "a value is required for '--type <TYPE>...'",
+        ));
+    Ok(())
+}
+
+// --------------------------------------------------
+#[test]
 fn dies_bad_type() -> Result<()> {
-    let expected = "error: invalid value 'x' for '--type [<TYPE>...]'";
+    let expected = "error: invalid value 'x' for '--type <TYPE>...'";
     Command::cargo_bin(PRG)?
         .args(["--type", "x"])
         .assert()

@@ -11,11 +11,11 @@ struct Args {
     paths: Vec<String>,
 
     /// Name
-    #[arg(short = 'n', long = "name", value_name = "NAME", num_args = 0..)]
+    #[arg(short = 'n', long = "name", value_name = "NAME", num_args = 1..)]
     names: Vec<Regex>,
 
     /// Entry type
-    #[arg(short = 't', long = "type", value_name = "TYPE", num_args = 0..)]
+    #[arg(short = 't', long = "type", value_name = "TYPE", num_args = 1..)]
     entry_types: Vec<EntryType>,
 
     /// Maximum recursion depth (0 = only the root)
