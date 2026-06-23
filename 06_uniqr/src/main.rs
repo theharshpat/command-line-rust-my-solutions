@@ -31,6 +31,17 @@ fn run(args: Args) -> Result<()> {
     let mut prev = None;
     let mut same_count = 0;
 
+    let mut print = |num: u64, text: &str| -> Result<()> {
+        if num > 0 {
+            if args.count {
+                write!(writer, "{num:>4} {text}")?;
+            } else {
+                write!(writer, "{text}")?;
+            }
+        }
+        Ok(())
+    };
+
     loop {
         let bytes_read = file.read_line(&mut line)?;
         if bytes_read == 0 {
@@ -43,11 +54,7 @@ fn run(args: Args) -> Result<()> {
         } else if line.trim_end() == prev.clone().unwrap().trim_end() {
             same_count += 1;
         } else {
-            if args.count {
-                write!(writer, "{:>4} {}", same_count, prev.clone().unwrap())?;
-            } else {
-                write!(writer, "{}", prev.clone().unwrap())?;
-            }
+            print(same_count, &prev.clone().unwrap())?;
             prev = Some(line.clone());
             same_count = 1;
         }
@@ -55,12 +62,8 @@ fn run(args: Args) -> Result<()> {
         line.clear();
     }
 
-    if prev.clone().is_some() {
-        if args.count {
-            write!(writer, "{:>4} {}", same_count, prev.clone().unwrap())?;
-        } else {
-            write!(writer, "{}", prev.clone().unwrap())?;
-        }
+    if same_count > 0 {
+        print(same_count, &prev.clone().unwrap())?;
     }
 
     Ok(())
