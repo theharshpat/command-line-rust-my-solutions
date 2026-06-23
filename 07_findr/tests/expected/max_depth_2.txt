@@ -1,0 +1,12 @@
+tests/inputs
+tests/inputs/a
+tests/inputs/a/a.txt
+tests/inputs/a/b
+tests/inputs/d
+tests/inputs/d/b.csv
+tests/inputs/d/d.tsv
+tests/inputs/d/d.txt
+tests/inputs/d/e
+tests/inputs/f
+tests/inputs/f/f.txt
+tests/inputs/g.csv

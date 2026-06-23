@@ -17,6 +17,14 @@ struct Args {
     /// Entry type
     #[arg(short = 't', long = "type", value_name = "TYPE", num_args = 0..)]
     entry_types: Vec<EntryType>,
+
+    /// Maximum recursion depth (0 = only the root)
+    #[arg(long)]
+    max_depth: Option<usize>,
+
+    /// Minimum recursion depth (0 = the root)
+    #[arg(long)]
+    min_depth: Option<usize>,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -48,7 +56,14 @@ fn run(args: Args) -> Result<()> {
     };
 
     for path in &args.paths {
-        for entry in WalkDir::new(path)
+        let mut walker = WalkDir::new(path);
+        if let Some(d) = args.min_depth {
+            walker = walker.min_depth(d);
+        }
+        if let Some(d) = args.max_depth {
+            walker = walker.max_depth(d);
+        }
+        for entry in walker
             .into_iter()
             .filter_map(|e| match e {
                 Err(e) => {
