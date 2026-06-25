@@ -100,29 +100,24 @@ fn run(args: Args) -> Result<()> {
             Ok(file) => {
                 let reader = open(&file).unwrap();
                 let lines = find_lines(reader, &pattern, args.invert);
+                let lines = lines.unwrap();
 
-                let is_print_prefix_file = args.recursive || args.files.len() > 1;
+                let to_print_file_prefix = args.recursive || args.files.len() > 1;
 
                 if args.count {
-                    println!(
-                        "{}{}",
-                        if is_print_prefix_file {
-                            format!("{}:", file)
+                    if to_print_file_prefix {
+                        println!("{}:{}", file, lines.len());
+                    } else {
+                        println!("{}", lines.len());
+                    }
+                } else if !lines.is_empty() {
+                    for l in lines {
+                        if to_print_file_prefix {
+                            println!("{}:{}", file, l);
                         } else {
-                            "".to_string()
-                        },
-                        lines.unwrap().len()
-                    );
-                } else {
-                    println!(
-                        "{}{}",
-                        if is_print_prefix_file {
-                            format!("{}: ", file)
-                        } else {
-                            "".to_string()
-                        },
-                        lines.unwrap().join("\n")
-                    );
+                            println!("{}", l);
+                        }
+                    }
                 }
             }
         }
