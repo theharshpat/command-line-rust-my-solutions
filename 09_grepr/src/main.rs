@@ -43,25 +43,40 @@ fn find_files(files: &[String], recursive: bool) -> Vec<Result<String>> {
             continue;
         }
 
-        if !Path::new(file).exists() {
-            result.push(Err(anyhow!("{}: No such file or directory", file)));
-            continue;
-        }
+        let handle = match File::open(file) {
+            Ok(h) => h,
+            Err(e) => {
+                result.push(Err(anyhow!("{}: {}", file, e)));
+                continue;
+            }
+        };
 
-        if Path::new(file).is_file() {
+        let meta = match handle.metadata() {
+            Ok(m) => m,
+            Err(e) => {
+                result.push(Err(anyhow!("{}: {}", file, e)));
+                continue;
+            }
+        };
+
+        if meta.is_file() {
             result.push(Ok(file.to_string()));
             continue;
         }
 
-        if recursive {
-            for entry in WalkDir::new(file) {
-                let entry = entry.unwrap();
-                if entry.file_type().is_file() {
+        if !recursive {
+            result.push(Err(anyhow!("{} is a directory", file)));
+            continue;
+        }
+
+        for entry in WalkDir::new(file) {
+            match entry {
+                Ok(entry) if entry.file_type().is_file() => {
                     result.push(Ok(entry.path().to_string_lossy().to_string()));
                 }
+                Ok(_) => {}
+                Err(e) => result.push(Err(anyhow!("{}", e))),
             }
-        } else {
-            result.push(Err(anyhow!("{} is a directory", file)));
         }
     }
 
