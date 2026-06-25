@@ -340,3 +340,27 @@ fn tsv_c1_8() -> Result<()> {
 fn repeated_value() -> Result<()> {
     run(&[BOOKS, "-c", "1,1"], "tests/expected/books.c1,1.out")
 }
+
+// --------------------------------------------------
+// Field value contains the delimiter; output must re-quote it
+// (RFC 4180 §2.6/§2.7). Naive join would emit an ambiguous 3-field row.
+#[test]
+fn csv_quoted_field_delimiter() -> Result<()> {
+    run(
+        &["tests/inputs/quoted.csv", "-f", "1-2", "-d", ","],
+        "tests/expected/quoted.csv.f1-2.dcomma.out",
+    )
+}
+
+// --------------------------------------------------
+// Quoted field spanning multiple lines. The record boundary
+// lives *inside* a quoted field, so iterating line-by-line on the
+// raw stream splits it mid-record. The csv reader buffers across
+// newlines until the quote closes.
+#[test]
+fn csv_multiline_quoted_record() -> Result<()> {
+    run(
+        &["tests/inputs/multiline.csv", "-f", "1", "-d", ","],
+        "tests/expected/multiline.csv.f1.dcomma.out",
+    )
+}
