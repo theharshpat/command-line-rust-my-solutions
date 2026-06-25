@@ -126,17 +126,22 @@ fn run(args: Args) -> Result<()> {
                 let lines = lines.unwrap();
 
                 let to_print_file_prefix = args.recursive || args.files.len() > 1;
+                let display_name = if file == "-" {
+                    "(standard input)".to_string()
+                } else {
+                    file
+                };
 
                 if args.count {
                     if to_print_file_prefix {
-                        println!("{}:{}", file, lines.len());
+                        println!("{}:{}", display_name, lines.len());
                     } else {
                         println!("{}", lines.len());
                     }
                 } else if !lines.is_empty() {
                     for l in lines {
                         if to_print_file_prefix {
-                            print!("{}:{}", file, l);
+                            print!("{}:{}", display_name, l);
                         } else {
                             print!("{}", l);
                         }

@@ -285,3 +285,58 @@ fn stdin_insensitive_count() -> Result<()> {
     assert_eq!(stdout, expected);
     Ok(())
 }
+
+// --------------------------------------------------
+#[test]
+fn stdin_default() -> Result<()> {
+    let input = fs::read_to_string(BUSTLE)?;
+    let expected =
+        fs::read_to_string("tests/expected/bustle.txt.the.capitalized")?;
+
+    let output = Command::cargo_bin(PRG)?
+        .arg("The")
+        .write_stdin(input)
+        .output()
+        .expect("fail");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
+    assert_eq!(stdout, expected);
+    Ok(())
+}
+
+// --------------------------------------------------
+#[test]
+fn stdin_count() -> Result<()> {
+    let input = fs::read_to_string(BUSTLE)?;
+    let expected =
+        fs::read_to_string("tests/expected/bustle.txt.the.capitalized.count")?;
+
+    let output = Command::cargo_bin(PRG)?
+        .args(["-c", "The"])
+        .write_stdin(input)
+        .output()
+        .expect("fail");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
+    assert_eq!(stdout, expected);
+    Ok(())
+}
+
+// --------------------------------------------------
+#[test]
+fn stdin_mixed_with_files() -> Result<()> {
+    let expected = fs::read_to_string("tests/expected/stdin.mixed_files.the")?;
+
+    let output = Command::cargo_bin(PRG)?
+        .args(["The", BUSTLE, "-", FOX])
+        .write_stdin("The test")
+        .output()
+        .expect("fail");
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("invalid UTF-8");
+    assert_eq!(stdout, expected);
+    Ok(())
+}
