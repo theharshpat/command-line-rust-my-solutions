@@ -1,12 +1,37 @@
+use anyhow::{Result, anyhow, bail};
+use clap::Parser;
+use regex::Regex;
+use std::fs::File;
+use std::io::{self, BufRead, BufReader};
+
+#[derive(Debug, Parser)]
+#[command(version, about = "Rust version of `grep`")]
+struct Args {}
+
+fn find_files(files: &[String], recursive: bool) -> Vec<Result<String>> {
+    unimplemented!();
+}
+
+fn find_lines<T: BufRead>(reader: T, pattern: &Regex, invert: bool) -> Result<Vec<String>> {
+    unimplemented!();
+}
+
+fn run(args: Args) -> Result<()> {
+    Ok(())
+}
+
 fn main() {
-    println!("Hello, world!");
+    if let Err(e) = run(Args::parse()) {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{find_files, find_lines};
     use pretty_assertions::assert_eq;
-    use rand::{distr::Alphanumeric, RngExt};
+    use rand::{RngExt, distr::Alphanumeric};
     use regex::{Regex, RegexBuilder};
     use std::io::Cursor;
 
@@ -45,8 +70,7 @@ mod tests {
     #[test]
     fn test_find_files() {
         // Verify that the function finds a file known to exist
-        let files =
-            find_files(&["./tests/inputs/fox.txt".to_string()], false);
+        let files = find_files(&["./tests/inputs/fox.txt".to_string()], false);
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].as_ref().unwrap(), "./tests/inputs/fox.txt");
 
