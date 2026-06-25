@@ -1,16 +1,15 @@
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, anyhow};
 use clap::Parser;
 use regex::{Regex, RegexBuilder};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
-use std::path::Path;
+use std::mem;
 use walkdir::WalkDir;
 
 #[derive(Debug, Parser)]
 #[command(version, about = "Rust version of `grep`")]
 struct Args {
     /// Search pattern
-    #[arg(required = true)]
     pattern: String,
 
     /// Input file(s)
@@ -43,15 +42,7 @@ fn find_files(files: &[String], recursive: bool) -> Vec<Result<String>> {
             continue;
         }
 
-        let handle = match File::open(file) {
-            Ok(h) => h,
-            Err(e) => {
-                result.push(Err(anyhow!("{}: {}", file, e)));
-                continue;
-            }
-        };
-
-        let meta = match handle.metadata() {
+        let meta = match fs::metadata(file) {
             Ok(m) => m,
             Err(e) => {
                 result.push(Err(anyhow!("{}: {}", file, e)));
@@ -72,7 +63,7 @@ fn find_files(files: &[String], recursive: bool) -> Vec<Result<String>> {
         for entry in WalkDir::new(file) {
             match entry {
                 Ok(entry) if entry.file_type().is_file() => {
-                    result.push(Ok(entry.path().to_string_lossy().to_string()));
+                    result.push(Ok(entry.path().display().to_string()));
                 }
                 Ok(_) => {}
                 Err(e) => result.push(Err(anyhow!("{}", e))),
@@ -103,7 +94,7 @@ fn find_lines<T: BufRead>(mut reader: T, pattern: &Regex, invert: bool) -> Resul
             line.push('\n');
         }
         if pattern.is_match(&line) ^ invert {
-            result.push(line.clone());
+            result.push(mem::take(&mut line));
         }
     }
     Ok(result)
@@ -116,16 +107,29 @@ fn run(args: Args) -> Result<()> {
         .map_err(|_| anyhow!(r#"Invalid pattern "{}""#, args.pattern))?;
 
     let files = find_files(&args.files, args.recursive);
+    let to_print_file_prefix = args.recursive || args.files.len() > 1;
+    let print = |fname: &str, val: &str| {
+        if to_print_file_prefix {
+            print!("{fname}:{val}");
+        } else {
+            print!("{val}");
+        }
+    };
 
     for file in files {
         match file {
             Err(e) => eprintln!("{e}"),
             Ok(file) => {
-                let reader = open(&file).unwrap();
+                let reader = match open(&file) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        eprintln!("{file}: {e}");
+                        continue;
+                    }
+                };
                 let lines = find_lines(reader, &pattern, args.invert);
                 let lines = lines.unwrap();
 
-                let to_print_file_prefix = args.recursive || args.files.len() > 1;
                 let display_name = if file == "-" {
                     "(standard input)".to_string()
                 } else {
@@ -133,18 +137,10 @@ fn run(args: Args) -> Result<()> {
                 };
 
                 if args.count {
-                    if to_print_file_prefix {
-                        println!("{}:{}", display_name, lines.len());
-                    } else {
-                        println!("{}", lines.len());
-                    }
+                    print(&display_name, &format!("{}\n", lines.len()));
                 } else if !lines.is_empty() {
                     for l in lines {
-                        if to_print_file_prefix {
-                            print!("{}:{}", display_name, l);
-                        } else {
-                            print!("{}", l);
-                        }
+                        print(&display_name, &l);
                     }
                 }
             }
