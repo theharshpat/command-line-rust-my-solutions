@@ -1,5 +1,6 @@
 use anyhow::{Result, anyhow, bail};
 use clap::Parser;
+use csv::StringRecord;
 use regex::Regex;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
@@ -79,16 +80,47 @@ fn parse_pos(range: String) -> Result<Vec<Range<usize>>> {
         .collect()
 }
 
-fn extract_fields<'a>(record: &'a csv::StringRecord, field_pos: &[Range<usize>]) -> Vec<&'a str> {
-    unimplemented!()
+fn extract_fields(line: &str, field_pos: &[Range<usize>], delimiter_byte: u8) -> String {
+    let mut reader = csv::ReaderBuilder::new()
+        .delimiter(delimiter_byte)
+        .has_headers(false)
+        .from_reader(line.as_bytes());
+    let record = reader.records().next().unwrap().unwrap();
+    let mut fields = Vec::new();
+    for range in field_pos {
+        for i in range.clone() {
+            if let Some(field) = record.get(i) {
+                fields.push(field);
+            }
+        }
+    }
+    fields.join(&(delimiter_byte as char).to_string())
 }
 
 fn extract_bytes(line: &str, byte_pos: &[Range<usize>]) -> String {
-    unimplemented!()
+    let bytes = line.as_bytes();
+    let mut selected: Vec<u8> = Vec::new();
+    for range in byte_pos {
+        for i in range.clone() {
+            if let Some(&byte) = bytes.get(i) {
+                selected.push(byte);
+            }
+        }
+    }
+    String::from_utf8_lossy(&selected).into_owned()
 }
 
 fn extract_chars(line: &str, char_pos: &[Range<usize>]) -> String {
-    unimplemented!()
+    let chars: Vec<char> = line.chars().collect();
+    let mut selected: Vec<char> = Vec::new();
+    for range in char_pos {
+        for i in range.clone() {
+            if let Some(&ch) = chars.get(i) {
+                selected.push(ch);
+            }
+        }
+    }
+    selected.into_iter().collect()
 }
 
 fn open(filename: &str) -> Result<Box<dyn BufRead>> {
@@ -102,7 +134,7 @@ fn run(args: Args) -> Result<()> {
     if args.delimiter.len() != 1 {
         bail!(r#"--delimiter "{}" must be a single byte"#, args.delimiter);
     }
-    let _delimiter_byte = args.delimiter.as_bytes()[0];
+    let delimiter_byte = args.delimiter.as_bytes()[0];
 
     let extract = if let Some(fields) = args.extract.fields {
         Extract::Fields(parse_pos(fields)?)
@@ -114,7 +146,24 @@ fn run(args: Args) -> Result<()> {
         unreachable!("clap #[group(required, multiple = false)] guarantees one is set")
     };
 
-    println!("{extract:#?}");
+    for filename in &args.files {
+        let mut reader = open(&filename)?;
+
+        for line in reader.lines() {
+            let line = line?;
+            match &extract {
+                Extract::Fields(field_pos) => {
+                    println!("{}", extract_fields(&line, field_pos, delimiter_byte));
+                }
+                Extract::Bytes(byte_pos) => {
+                    println!("{}", extract_bytes(&line, byte_pos));
+                }
+                Extract::Chars(char_pos) => {
+                    println!("{}", extract_chars(&line, char_pos));
+                }
+            }
+        }
+    }
 
     Ok(())
 }
@@ -129,7 +178,6 @@ fn main() {
 #[cfg(test)]
 mod unit_tests {
     use super::{extract_bytes, extract_chars, extract_fields, parse_pos};
-    use csv::StringRecord;
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -252,12 +300,18 @@ mod unit_tests {
 
     #[test]
     fn test_extract_fields() {
-        let rec = StringRecord::from(vec!["Captain", "Sham", "12345"]);
-        assert_eq!(extract_fields(&rec, &[0..1]), &["Captain"]);
-        assert_eq!(extract_fields(&rec, &[1..2]), &["Sham"]);
-        assert_eq!(extract_fields(&rec, &[0..1, 2..3]), &["Captain", "12345"]);
-        assert_eq!(extract_fields(&rec, &[0..1, 3..4]), &["Captain"]);
-        assert_eq!(extract_fields(&rec, &[1..2, 0..1]), &["Sham", "Captain"]);
+        let line = "Captain\tSham\t12345";
+        assert_eq!(extract_fields(line, &[0..1], b'\t'), "Captain".to_string());
+        assert_eq!(extract_fields(line, &[1..2], b'\t'), "Sham".to_string());
+        assert_eq!(
+            extract_fields(line, &[0..1, 2..3], b'\t'),
+            "Captain\t12345".to_string()
+        );
+        assert_eq!(extract_fields(line, &[0..1, 3..4], b'\t'), "Captain".to_string());
+        assert_eq!(
+            extract_fields(line, &[1..2, 0..1], b'\t'),
+            "Sham\tCaptain".to_string()
+        );
     }
 
     #[test]
