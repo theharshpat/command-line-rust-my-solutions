@@ -37,13 +37,11 @@ struct ArgsExtract {
     chars: Option<String>,
 }
 
-type PositionList = Vec<Range<usize>>;
-
 #[derive(Debug)]
 enum Extract {
-    Fields(PositionList),
-    Bytes(PositionList),
-    Chars(PositionList),
+    Fields(Vec<Range<usize>>),
+    Bytes(Vec<Range<usize>>),
+    Chars(Vec<Range<usize>>),
 }
 
 fn parse_index(input: &str) -> Result<usize> {
@@ -56,7 +54,7 @@ fn parse_index(input: &str) -> Result<usize> {
         .map_err(|_| anyhow!(r#"illegal list value: "{input}""#))
 }
 
-fn parse_pos(range: String) -> Result<PositionList> {
+fn parse_pos(range: String) -> Result<Vec<Range<usize>>> {
     let range_re = Regex::new(r"^(\d+)-(\d+)$").unwrap();
     range
         .split(',')
@@ -106,12 +104,12 @@ fn run(args: Args) -> Result<()> {
     }
     let _delimiter_byte = args.delimiter.as_bytes()[0];
 
-    let extract = if let Some(f) = args.extract.fields.map(parse_pos).transpose()? {
-        Extract::Fields(f)
-    } else if let Some(b) = args.extract.bytes.map(parse_pos).transpose()? {
-        Extract::Bytes(b)
-    } else if let Some(c) = args.extract.chars.map(parse_pos).transpose()? {
-        Extract::Chars(c)
+    let extract = if let Some(fields) = args.extract.fields {
+        Extract::Fields(parse_pos(fields)?)
+    } else if let Some(bytes) = args.extract.bytes {
+        Extract::Bytes(parse_pos(bytes)?)
+    } else if let Some(chars) = args.extract.chars {
+        Extract::Chars(parse_pos(chars)?)
     } else {
         unreachable!("clap #[group(required, multiple = false)] guarantees one is set")
     };
