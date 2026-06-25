@@ -75,12 +75,20 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
     }
 }
 
-fn find_lines<T: BufRead>(mut file: T, pattern: &Regex, invert: bool) -> Result<Vec<String>> {
+fn find_lines<T: BufRead>(mut reader: T, pattern: &Regex, invert: bool) -> Result<Vec<String>> {
     let mut result = Vec::new();
-    for line in file.lines() {
-        let line = line?;
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let n = reader.read_line(&mut line)?;
+        if n == 0 {
+            break;
+        }
+        if !line.ends_with('\n') {
+            line.push('\n');
+        }
         if pattern.is_match(&line) ^ invert {
-            result.push(line);
+            result.push(line.clone());
         }
     }
     Ok(result)
@@ -113,9 +121,9 @@ fn run(args: Args) -> Result<()> {
                 } else if !lines.is_empty() {
                     for l in lines {
                         if to_print_file_prefix {
-                            println!("{}:{}", file, l);
+                            print!("{}:{}", file, l);
                         } else {
-                            println!("{}", l);
+                            print!("{}", l);
                         }
                     }
                 }
