@@ -1,12 +1,41 @@
+use anyhow::Result;
+use clap::Parser;
+
+#[derive(Debug, Parser)]
+#[command(version, about = "Rust version of `tail`")]
+struct Args {
+    /// Input file(s)
+    #[arg(default_value = "-", value_name = "FILE")]
+    files: Vec<String>,
+
+    /// Number of lines
+    #[arg(short = 'n', long = "lines", default_value = "10")]
+    lines: String,
+
+    /// Number of bytes
+    #[arg(short = 'c', long = "bytes", value_name = "BYTES")]
+    bytes: Option<String>,
+
+    /// Suppress headers
+    #[arg(short, long)]
+    quiet: bool,
+}
+
+fn run(args: Args) -> Result<()> {
+    println!("{:#?}", args);
+    Ok(())
+}
+
 fn main() {
-    println!("Hello, world!");
+    if let Err(e) = run(Args::parse()) {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        count_lines_bytes, get_start_index, parse_num, TakeValue::*,
-    };
+    use super::{TakeValue::*, count_lines_bytes, get_start_index, parse_num};
     use pretty_assertions::assert_eq;
 
     #[test]
