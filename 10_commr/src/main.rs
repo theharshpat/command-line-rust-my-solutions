@@ -44,14 +44,16 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
     }
 }
 
+enum Column<'a> {
+    Col1(&'a str),
+    Col2(&'a str),
+    Col3(&'a str),
+}
+
 fn run(args: Args) -> Result<()> {
     let file1 = &args.file1;
     let file2 = &args.file2;
-    let show_col1 = args.show_col1;
-    let show_col2 = args.show_col2;
-    let show_col3 = args.show_col3;
-    let insensitive = args.insensitive;
-    let delimiter = &args.delimiter;
+
     if file1 == "-" && file2 == "-" {
         bail!(r#"Both input files cannot be STDIN ("-")"#);
     }
@@ -59,12 +61,29 @@ fn run(args: Args) -> Result<()> {
     let fh1 = open(file1)?;
     let fh2 = open(file2)?;
 
-    let mut lines1 = fh1.lines().map_while(Result::ok).map(|line| {
-        if insensitive { line.to_lowercase() } else { line }
-    });
-    let mut lines2 = fh2.lines().map_while(Result::ok).map(|line| {
-        if insensitive { line.to_lowercase() } else { line }
-    });
+    let case = |line: String| {
+        if args.insensitive { line.to_lowercase() } else { line }
+    };
+
+    let mut lines1 = fh1.lines().map_while(Result::ok).map(case);
+    let mut lines2 = fh2.lines().map_while(Result::ok).map(case);
+
+    let delimiter = &args.delimiter;
+    let print = |col: Column| match col {
+        Column::Col1(val) if args.show_col1 => {
+            println!("{val}");
+        }
+        Column::Col2(val) if args.show_col2 => {
+            if args.show_col1 { print!("{delimiter}"); }
+            println!("{val}");
+        }
+        Column::Col3(val) if args.show_col3 => {
+            if args.show_col1 { print!("{delimiter}"); }
+            if args.show_col2 { print!("{delimiter}"); }
+            println!("{val}");
+        }
+        _ => (),
+    };
 
     let mut line1 = lines1.next();
     let mut line2 = lines2.next();
@@ -76,47 +95,25 @@ fn run(args: Args) -> Result<()> {
         match (&line1, &line2) {
             (Some(v1), Some(v2)) => match v1.cmp(v2) {
                 Equal => {
-                    if show_col3 {
-                        if show_col1 {
-                            print!("{delimiter}");
-                        }
-                        if show_col2 {
-                            print!("{delimiter}");
-                        }
-                        println!("{v1}");
-                    }
+                    print(Column::Col3(v1));
                     line1 = lines1.next();
                     line2 = lines2.next();
                 }
                 Less => {
-                    if show_col1 {
-                        println!("{v1}");
-                    }
+                    print(Column::Col1(v1));
                     line1 = lines1.next();
                 }
                 Greater => {
-                    if show_col2 {
-                        if show_col1 {
-                            print!("{delimiter}");
-                        }
-                        println!("{v2}");
-                    }
+                    print(Column::Col2(v2));
                     line2 = lines2.next();
                 }
             },
             (Some(v1), None) => {
-                if show_col1 {
-                    println!("{v1}");
-                }
+                print(Column::Col1(v1));
                 line1 = lines1.next();
             }
             (None, Some(v2)) => {
-                if show_col2 {
-                    if show_col1 {
-                        print!("{delimiter}");
-                    }
-                    println!("{v2}");
-                }
+                print(Column::Col2(v2));
                 line2 = lines2.next();
             }
             _ => (),
