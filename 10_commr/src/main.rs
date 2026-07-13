@@ -59,8 +59,12 @@ fn run(args: Args) -> Result<()> {
     let fh1 = open(file1)?;
     let fh2 = open(file2)?;
 
-    let mut lines1 = fh1.lines().map_while(Result::ok);
-    let mut lines2 = fh2.lines().map_while(Result::ok);
+    let mut lines1 = fh1.lines().map_while(Result::ok).map(|line| {
+        if insensitive { line.to_lowercase() } else { line }
+    });
+    let mut lines2 = fh2.lines().map_while(Result::ok).map(|line| {
+        if insensitive { line.to_lowercase() } else { line }
+    });
 
     let mut line1 = lines1.next();
     let mut line2 = lines2.next();
