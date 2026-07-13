@@ -4,6 +4,9 @@ use clap::Parser;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::ops::Neg;
 
 #[derive(Debug, Parser)]
@@ -73,6 +76,57 @@ fn count_lines_bytes(filename: &str) -> Result<(i64, i64)> {
     Ok((num_lines, num_bytes))
 }
 
+fn get_start_index(take_val: &TakeValue, total: i64) -> Option<u64> {
+    match take_val {
+        TakeValue::PlusZero => {
+            if total > 0 {
+                Some(0)
+            } else {
+                None
+            }
+        }
+        TakeValue::TakeNum(num) => {
+            if num == &0 || total == 0 || num > &total {
+                None
+            } else {
+                let start = if num < &0 { total + num } else { num - 1 };
+                Some(if start < 0 { 0 } else { start as u64 })
+            }
+        }
+    }
+}
+
+fn print_lines<T: BufRead>(mut file: T, num_lines: &TakeValue, total_lines: i64) -> Result<()> {
+    if let Some(start) = get_start_index(num_lines, total_lines) {
+        let mut line_num = 0;
+        let mut buf = Vec::new();
+        loop {
+            let bytes_read = file.read_until(b'\n', &mut buf)?;
+            if bytes_read == 0 {
+                break;
+            }
+            if line_num >= start {
+                print!("{}", String::from_utf8_lossy(&buf));
+            }
+            line_num += 1;
+            buf.clear();
+        }
+    }
+    Ok(())
+}
+
+fn print_bytes<T: Read + Seek>(mut file: T, num_bytes: &TakeValue, total_bytes: i64) -> Result<()> {
+    if let Some(start) = get_start_index(num_bytes, total_bytes) {
+        file.seek(SeekFrom::Start(start))?;
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf)?;
+        if !buf.is_empty() {
+            print!("{}", String::from_utf8_lossy(&buf));
+        }
+    }
+    Ok(())
+}
+
 fn run(args: Args) -> Result<()> {
     let lines = parse_num(args.lines).map_err(|e| anyhow!("illegal line count -- {e}"))?;
     let bytes = args
@@ -80,15 +134,26 @@ fn run(args: Args) -> Result<()> {
         .map(parse_num)
         .transpose()
         .map_err(|e| anyhow!("illegal byte count -- {e}"))?;
-    println!("lines = {lines:?}");
-    println!("bytes = {bytes:?}");
 
-    for filename in args.files {
-        match File::open(&filename) {
+    let num_files = args.files.len();
+    for (file_num, filename) in args.files.iter().enumerate() {
+        match File::open(filename) {
             Err(err) => eprintln!("{filename}: {err}"),
-            Ok(_) => {
-                let (total_lines, total_bytes) = count_lines_bytes(&filename)?;
-                println!("{filename} has {total_lines} lines, {total_bytes} bytes");
+            Ok(file) => {
+                if !args.quiet && num_files > 1 {
+                    println!(
+                        "{}==> {} <==",
+                        if file_num > 0 { "\n" } else { "" },
+                        filename,
+                    );
+                }
+                let (total_lines, total_bytes) = count_lines_bytes(filename)?;
+                let file = BufReader::new(file);
+                if let Some(num_bytes) = &bytes {
+                    print_bytes(file, num_bytes, total_bytes)?;
+                } else {
+                    print_lines(file, &lines, total_lines)?;
+                }
             }
         }
     }
@@ -104,7 +169,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{TakeValue::*, count_lines_bytes, parse_num};
+    use super::{TakeValue::*, count_lines_bytes, get_start_index, parse_num};
     use pretty_assertions::assert_eq;
 
     #[test]
