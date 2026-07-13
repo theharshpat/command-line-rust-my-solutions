@@ -1,5 +1,6 @@
 use anyhow::{Result, anyhow, bail};
 use clap::{ArgAction, Parser};
+use std::cmp::Ordering::*;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 
@@ -46,12 +47,78 @@ fn open(filename: &str) -> Result<Box<dyn BufRead>> {
 fn run(args: Args) -> Result<()> {
     let file1 = &args.file1;
     let file2 = &args.file2;
+    let show_col1 = args.show_col1;
+    let show_col2 = args.show_col2;
+    let show_col3 = args.show_col3;
+    let insensitive = args.insensitive;
+    let delimiter = &args.delimiter;
     if file1 == "-" && file2 == "-" {
         bail!(r#"Both input files cannot be STDIN ("-")"#);
     }
 
-    let _fh1 = open(file1)?;
-    let _fh2 = open(file2)?;
+    let fh1 = open(file1)?;
+    let fh2 = open(file2)?;
+
+    let mut lines1 = fh1.lines().map_while(Result::ok);
+    let mut lines2 = fh2.lines().map_while(Result::ok);
+
+    let mut line1 = lines1.next();
+    let mut line2 = lines2.next();
+
+    loop {
+        if line1.is_none() && line2.is_none() {
+            break;
+        }
+        match (&line1, &line2) {
+            (Some(v1), Some(v2)) => match v1.cmp(v2) {
+                Equal => {
+                    if show_col3 {
+                        if show_col1 {
+                            print!("{delimiter}");
+                        }
+                        if show_col2 {
+                            print!("{delimiter}");
+                        }
+                        println!("{v1}");
+                    }
+                    line1 = lines1.next();
+                    line2 = lines2.next();
+                }
+                Less => {
+                    if show_col1 {
+                        println!("{v1}");
+                    }
+                    line1 = lines1.next();
+                }
+                Greater => {
+                    if show_col2 {
+                        if show_col1 {
+                            print!("{delimiter}");
+                        }
+                        println!("{v2}");
+                    }
+                    line2 = lines2.next();
+                }
+            },
+            (Some(v1), None) => {
+                if show_col1 {
+                    println!("{v1}");
+                }
+                line1 = lines1.next();
+            }
+            (None, Some(v2)) => {
+                if show_col2 {
+                    if show_col1 {
+                        print!("{delimiter}");
+                    }
+                    println!("{v2}");
+                }
+                line2 = lines2.next();
+            }
+            _ => (),
+        }
+    }
+
     Ok(())
 }
 
