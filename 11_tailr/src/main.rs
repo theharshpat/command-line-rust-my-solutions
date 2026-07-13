@@ -5,7 +5,7 @@ use clap::Parser;
 #[command(version, about = "Rust version of `tail`")]
 struct Args {
     /// Input file(s)
-    #[arg(default_value = "-", value_name = "FILE")]
+    #[arg(required = true, value_name = "FILE")]
     files: Vec<String>,
 
     /// Number of lines
@@ -13,7 +13,12 @@ struct Args {
     lines: String,
 
     /// Number of bytes
-    #[arg(short = 'c', long = "bytes", value_name = "BYTES")]
+    #[arg(
+        short = 'c',
+        long = "bytes",
+        value_name = "BYTES",
+        conflicts_with = "lines"
+    )]
     bytes: Option<String>,
 
     /// Suppress headers
