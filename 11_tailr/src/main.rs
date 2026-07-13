@@ -1,5 +1,8 @@
-use anyhow::Result;
+use crate::TakeValue::*;
+use anyhow::{Result, anyhow};
 use clap::Parser;
+use std::fs::File;
+use std::ops::Neg;
 
 #[derive(Debug, Parser)]
 #[command(version, about = "Rust version of `tail`")]
@@ -26,8 +29,47 @@ struct Args {
     quiet: bool,
 }
 
+#[derive(Debug, PartialEq)]
+enum TakeValue {
+    PlusZero,
+    TakeNum(i64),
+}
+
+fn parse_num(val: String) -> Result<TakeValue> {
+    // +0 is special: means "everything from the start"
+    if val == "+0" {
+        return Ok(PlusZero);
+    }
+
+    // All other inputs must parse as i64
+    let n = val.parse::<i64>().map_err(|_| anyhow!("{val}"))?;
+
+    // +N → positive (pass through); -N → negative (pass through);
+    // bare N → negative (tail semantics: "last N")
+    let signed = if val.starts_with('+') || val.starts_with('-') {
+        n
+    } else {
+        n.neg()
+    };
+    Ok(TakeNum(signed))
+}
+
 fn run(args: Args) -> Result<()> {
-    println!("{:#?}", args);
+    let lines = parse_num(args.lines).map_err(|e| anyhow!("illegal line count -- {e}"))?;
+    let bytes = args
+        .bytes
+        .map(parse_num)
+        .transpose()
+        .map_err(|e| anyhow!("illegal byte count -- {e}"))?;
+    println!("lines = {lines:?}");
+    println!("bytes = {bytes:?}");
+
+    for filename in args.files {
+        match File::open(&filename) {
+            Err(err) => eprintln!("{filename}: {err}"),
+            Ok(_) => println!("Opened {filename}"),
+        }
+    }
     Ok(())
 }
 
@@ -40,7 +82,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{TakeValue::*, count_lines_bytes, get_start_index, parse_num};
+    use super::{TakeValue::*, parse_num};
     use pretty_assertions::assert_eq;
 
     #[test]
