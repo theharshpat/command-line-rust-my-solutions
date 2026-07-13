@@ -2,6 +2,8 @@ use crate::TakeValue::*;
 use anyhow::{Result, anyhow};
 use clap::Parser;
 use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::ops::Neg;
 
 #[derive(Debug, Parser)]
@@ -54,6 +56,23 @@ fn parse_num(val: String) -> Result<TakeValue> {
     Ok(TakeNum(signed))
 }
 
+fn count_lines_bytes(filename: &str) -> Result<(i64, i64)> {
+    let mut file = BufReader::new(File::open(filename)?);
+    let mut num_lines = 0;
+    let mut num_bytes = 0;
+    let mut buf = Vec::new();
+    loop {
+        let n = file.read_until(b'\n', &mut buf)?;
+        if n == 0 {
+            break;
+        }
+        num_lines += 1;
+        num_bytes += n as i64;
+        buf.clear();
+    }
+    Ok((num_lines, num_bytes))
+}
+
 fn run(args: Args) -> Result<()> {
     let lines = parse_num(args.lines).map_err(|e| anyhow!("illegal line count -- {e}"))?;
     let bytes = args
@@ -67,7 +86,10 @@ fn run(args: Args) -> Result<()> {
     for filename in args.files {
         match File::open(&filename) {
             Err(err) => eprintln!("{filename}: {err}"),
-            Ok(_) => println!("Opened {filename}"),
+            Ok(_) => {
+                let (total_lines, total_bytes) = count_lines_bytes(&filename)?;
+                println!("{filename} has {total_lines} lines, {total_bytes} bytes");
+            }
         }
     }
     Ok(())
@@ -82,7 +104,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{TakeValue::*, parse_num};
+    use super::{TakeValue::*, count_lines_bytes, parse_num};
     use pretty_assertions::assert_eq;
 
     #[test]
