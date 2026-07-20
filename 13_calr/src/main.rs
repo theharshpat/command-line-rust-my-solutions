@@ -1,6 +1,21 @@
 use anyhow::Result;
 use clap::Parser;
 
+const MONTHS: [&str; 12] = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+];
+
 #[derive(Debug, Parser)]
 #[command(version, about = "Rust version of `cal`")]
 pub struct Args {
@@ -9,8 +24,12 @@ pub struct Args {
     year: Option<i32>,
 
     /// Month
-    #[arg(short, value_name = "MONTH")]
-    month: Option<String>,
+    #[arg(
+        short,
+        value_name = "MONTH",
+        value_parser = |month: &str| parse_month(month.to_string())
+    )]
+    month: Option<u32>,
 
     /// Display the current year
     #[arg(
@@ -24,8 +43,9 @@ pub struct Args {
 fn run(args: Args) -> Result<()> {
     let mode = if args.whole_year {
         "current whole year"
-    } else if args.month.is_some() {
-        "specified month"
+    } else if let Some(month) = args.month {
+        println!("specified month: {}", MONTHS[(month - 1) as usize]);
+        return Ok(());
     } else if args.year.is_some() {
         "specified whole year"
     } else {
@@ -36,6 +56,28 @@ fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
+fn parse_month(month: String) -> Result<u32> {
+    if let Ok(month_num) = month.parse::<u32>() {
+        if (1..=12).contains(&month_num) {
+            return Ok(month_num);
+        }
+        anyhow::bail!(r#"month "{month}" not in the range 1 through 12"#);
+    }
+
+    let month = month.to_lowercase();
+    let matches: Vec<_> = MONTHS
+        .iter()
+        .enumerate()
+        .filter(|(_, name)| name.to_lowercase().starts_with(&month))
+        .collect();
+
+    if matches.len() == 1 {
+        Ok((matches[0].0 + 1) as u32)
+    } else {
+        anyhow::bail!(r#"Invalid month "{month}""#)
+    }
+}
+
 fn main() {
     if let Err(e) = run(Args::parse()) {
         eprintln!("{e}");
@@ -43,43 +85,42 @@ fn main() {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::{format_month, last_day_in_month, parse_month};
-//     use chrono::NaiveDate;
+#[cfg(test)]
+mod tests {
+    use super::parse_month;
 
-//     #[test]
-//     fn test_parse_month() {
-//         let res = parse_month("1".to_string());
-//         assert!(res.is_ok());
-//         assert_eq!(res.unwrap(), 1u32);
+    #[test]
+    fn test_parse_month() {
+        let res = parse_month("1".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), 1u32);
 
-//         let res = parse_month("12".to_string());
-//         assert!(res.is_ok());
-//         assert_eq!(res.unwrap(), 12u32);
+        let res = parse_month("12".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), 12u32);
 
-//         let res = parse_month("jan".to_string());
-//         assert!(res.is_ok());
-//         assert_eq!(res.unwrap(), 1u32);
+        let res = parse_month("jan".to_string());
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap(), 1u32);
 
-//         let res = parse_month("0".to_string());
-//         assert!(res.is_err());
-//         assert_eq!(
-//             res.unwrap_err().to_string(),
-//             r#"month "0" not in the range 1 through 12"#
-//         );
+        let res = parse_month("0".to_string());
+        assert!(res.is_err());
+        assert_eq!(
+            res.unwrap_err().to_string(),
+            r#"month "0" not in the range 1 through 12"#
+        );
 
-//         let res = parse_month("13".to_string());
-//         assert!(res.is_err());
-//         assert_eq!(
-//             res.unwrap_err().to_string(),
-//             r#"month "13" not in the range 1 through 12"#
-//         );
+        let res = parse_month("13".to_string());
+        assert!(res.is_err());
+        assert_eq!(
+            res.unwrap_err().to_string(),
+            r#"month "13" not in the range 1 through 12"#
+        );
 
-//         let res = parse_month("foo".to_string());
-//         assert!(res.is_err());
-//         assert_eq!(res.unwrap_err().to_string(), r#"Invalid month "foo""#);
-//     }
+        let res = parse_month("foo".to_string());
+        assert!(res.is_err());
+        assert_eq!(res.unwrap_err().to_string(), r#"Invalid month "foo""#);
+    }
 
 //     #[test]
 //     fn test_format_month() {
@@ -137,4 +178,4 @@ fn main() {
 //             NaiveDate::from_ymd_opt(2020, 4, 30).unwrap()
 //         );
 //     }
-// }
+}
