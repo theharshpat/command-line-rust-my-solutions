@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::NaiveDate;
 use clap::Parser;
 
 const MONTHS: [&str; 12] = [
@@ -78,6 +79,19 @@ fn parse_month(month: String) -> Result<u32> {
     }
 }
 
+fn last_day_in_month(year: i32, month: u32) -> NaiveDate {
+    let (next_year, next_month) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
+
+    NaiveDate::from_ymd_opt(next_year, next_month, 1)
+        .unwrap()
+        .pred_opt()
+        .unwrap()
+}
+
 fn main() {
     if let Err(e) = run(Args::parse()) {
         eprintln!("{e}");
@@ -87,7 +101,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_month;
+    use super::{last_day_in_month, parse_month};
+    use chrono::NaiveDate;
 
     #[test]
     fn test_parse_month() {
@@ -163,19 +178,19 @@ mod tests {
 //         assert_eq!(format_month(2021, 4, true, today), april_hl);
 //     }
 
-//     #[test]
-//     fn test_last_day_in_month() {
-//         assert_eq!(
-//             last_day_in_month(2020, 1),
-//             NaiveDate::from_ymd_opt(2020, 1, 31).unwrap()
-//         );
-//         assert_eq!(
-//             last_day_in_month(2020, 2),
-//             NaiveDate::from_ymd_opt(2020, 2, 29).unwrap()
-//         );
-//         assert_eq!(
-//             last_day_in_month(2020, 4),
-//             NaiveDate::from_ymd_opt(2020, 4, 30).unwrap()
-//         );
-//     }
+    #[test]
+    fn test_last_day_in_month() {
+        assert_eq!(
+            last_day_in_month(2020, 1),
+            NaiveDate::from_ymd_opt(2020, 1, 31).unwrap()
+        );
+        assert_eq!(
+            last_day_in_month(2020, 2),
+            NaiveDate::from_ymd_opt(2020, 2, 29).unwrap()
+        );
+        assert_eq!(
+            last_day_in_month(2020, 4),
+            NaiveDate::from_ymd_opt(2020, 4, 30).unwrap()
+        );
+    }
 }
