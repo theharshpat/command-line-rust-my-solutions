@@ -4,6 +4,7 @@ use clap::Parser;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
+use tabular::{Row, Table};
 use users::{get_group_by_gid, get_user_by_uid};
 
 mod owner;
@@ -32,6 +33,8 @@ fn run(args: Args) -> Result<()> {
         for path in files {
             println!("{}", path.display());
         }
+    } else {
+        print!("{}", format_output(&files)?);
     }
     Ok(())
 }
@@ -88,7 +91,7 @@ fn format_mode(mode: u32) -> String {
 }
 
 fn format_output(paths: &[PathBuf]) -> Result<String> {
-    let mut output = String::new();
+    let mut table = Table::new("{:<}{:<}  {:>}  {:<}  {:<}  {:>}  {:<}  {:<}");
 
     for path in paths {
         let metadata = path.metadata()?;
@@ -102,19 +105,20 @@ fn format_output(paths: &[PathBuf]) -> Result<String> {
         let modified: DateTime<Local> = metadata.modified()?.into();
         let modified = modified.format("%b %d %y %H:%M");
 
-        output.push_str(&format!(
-            "{file_type}{} {} {} {} {} {} {}\n",
-            format_mode(metadata.mode()),
-            metadata.nlink(),
-            user,
-            group,
-            metadata.len(),
-            modified,
-            path.display(),
-        ));
+        table.add_row(
+            Row::new()
+                .with_cell(file_type)
+                .with_cell(format_mode(metadata.mode()))
+                .with_cell(metadata.nlink())
+                .with_cell(user)
+                .with_cell(group)
+                .with_cell(metadata.len())
+                .with_cell(modified)
+                .with_cell(path.display()),
+        );
     }
 
-    Ok(output)
+    Ok(table.to_string())
 }
 
 fn main() {
