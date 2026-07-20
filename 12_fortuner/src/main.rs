@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use walkdir::WalkDir;
 
@@ -23,8 +25,14 @@ pub struct Args {
     seed: Option<u64>,
 }
 
+struct Fortune {
+    source: String,
+    text: String,
+}
+
 fn run(args: Args) -> Result<()> {
-    find_files(&args.sources)?;
+    let files = find_files(&args.sources)?;
+    read_fortunes(&files)?;
     println!("{args:#?}");
     Ok(())
 }
@@ -59,6 +67,45 @@ fn find_files(paths: &[String]) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+fn read_fortunes(paths: &[PathBuf]) -> Result<Vec<Fortune>> {
+    let mut fortunes = Vec::new();
+
+    for path in paths {
+        let source = path
+            .file_name()
+            .ok_or_else(|| anyhow::anyhow!("{} has no filename", path.display()))?
+            .to_string_lossy()
+            .to_string();
+        let reader = BufReader::new(File::open(path)?);
+        let mut record = Vec::new();
+
+        for line in reader.lines() {
+            let line = line?;
+
+            if line == "%" {
+                if !record.is_empty() {
+                    fortunes.push(Fortune {
+                        source: source.clone(),
+                        text: record.join("\n"),
+                    });
+                    record.clear();
+                }
+            } else {
+                record.push(line);
+            }
+        }
+
+        if !record.is_empty() {
+            fortunes.push(Fortune {
+                source,
+                text: record.join("\n"),
+            });
+        }
+    }
+
+    Ok(fortunes)
+}
+
 fn main() {
     if let Err(e) = run(Args::parse()) {
         eprintln!("{e}");
@@ -68,7 +115,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::find_files;
+    use super::{find_files, read_fortunes};
+    use std::path::PathBuf;
 
     #[test]
     fn test_find_files() {
@@ -116,60 +164,60 @@ mod tests {
         }
     }
 
-//     #[test]
-//     fn test_read_fortunes() {
-//         // Parses all the fortunes without a filter
-//         let res = read_fortunes(&[PathBuf::from("./tests/inputs/jokes")]);
-//         assert!(res.is_ok());
+    #[test]
+    fn test_read_fortunes() {
+        // Parses all the fortunes without a filter
+        let res = read_fortunes(&[PathBuf::from("./tests/inputs/jokes")]);
+        assert!(res.is_ok());
 
-//         if let Ok(fortunes) = res {
-//             // Correct number and sorting
-//             assert_eq!(fortunes.len(), 6);
-//             assert_eq!(
-//                 fortunes.first().unwrap().text,
-//                 "Q. What do you call a head of lettuce in a shirt and tie?\n\
-//                 A. Collared greens."
-//             );
-//             assert_eq!(
-//                 fortunes.last().unwrap().text,
-//                 "Q: What do you call a deer wearing an eye patch?\n\
-//                 A: A bad idea (bad-eye deer)."
-//             );
-//         }
+        if let Ok(fortunes) = res {
+            // Correct number and sorting
+            assert_eq!(fortunes.len(), 6);
+            assert_eq!(
+                fortunes.first().unwrap().text,
+                "Q. What do you call a head of lettuce in a shirt and tie?\n\
+                A. Collared greens."
+            );
+            assert_eq!(
+                fortunes.last().unwrap().text,
+                "Q: What do you call a deer wearing an eye patch?\n\
+                A: A bad idea (bad-eye deer)."
+            );
+        }
 
-//         // Filters for matching text
-//         let res = read_fortunes(&[
-//             PathBuf::from("./tests/inputs/jokes"),
-//             PathBuf::from("./tests/inputs/quotes"),
-//         ]);
-//         assert!(res.is_ok());
-//         assert_eq!(res.unwrap().len(), 11);
-//     }
+        // Filters for matching text
+        let res = read_fortunes(&[
+            PathBuf::from("./tests/inputs/jokes"),
+            PathBuf::from("./tests/inputs/quotes"),
+        ]);
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().len(), 11);
+    }
 
-//     #[test]
-//     fn test_pick_fortune() {
-//         // Create a slice of fortunes
-//         let fortunes = &[
-//             Fortune {
-//                 source: "fortunes".to_string(),
-//                 text: "You cannot achieve the impossible without \
-//                       attempting the absurd."
-//                     .to_string(),
-//             },
-//             Fortune {
-//                 source: "fortunes".to_string(),
-//                 text: "Assumption is the mother of all screw-ups.".to_string(),
-//             },
-//             Fortune {
-//                 source: "fortunes".to_string(),
-//                 text: "Neckties strangle clear thinking.".to_string(),
-//             },
-//         ];
+    //     #[test]
+    //     fn test_pick_fortune() {
+    //         // Create a slice of fortunes
+    //         let fortunes = &[
+    //             Fortune {
+    //                 source: "fortunes".to_string(),
+    //                 text: "You cannot achieve the impossible without \
+    //                       attempting the absurd."
+    //                     .to_string(),
+    //             },
+    //             Fortune {
+    //                 source: "fortunes".to_string(),
+    //                 text: "Assumption is the mother of all screw-ups.".to_string(),
+    //             },
+    //             Fortune {
+    //                 source: "fortunes".to_string(),
+    //                 text: "Neckties strangle clear thinking.".to_string(),
+    //             },
+    //         ];
 
-//         // Pick a fortune with a seed
-//         assert_eq!(
-//             pick_fortune(fortunes, Some(1)).unwrap(),
-//             "Neckties strangle clear thinking.".to_string()
-//         );
-//     }
+    //         // Pick a fortune with a seed
+    //         assert_eq!(
+    //             pick_fortune(fortunes, Some(1)).unwrap(),
+    //             "Neckties strangle clear thinking.".to_string()
+    //         );
+    //     }
 }
