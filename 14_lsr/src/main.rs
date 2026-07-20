@@ -3,6 +3,9 @@ use clap::Parser;
 use std::fs;
 use std::path::PathBuf;
 
+mod owner;
+pub use owner::Owner;
+
 #[derive(Debug, Parser)]
 #[command(version, about = "Rust version of `ls`")]
 pub struct Args {
