@@ -65,6 +65,16 @@ fn find_files(paths: &[String], show_hidden: bool) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+fn mk_triple(mode: u32, owner: Owner) -> String {
+    let [read_mask, write_mask, execute_mask] = owner.masks();
+
+    let read = if mode & read_mask != 0 { 'r' } else { '-' };
+    let write = if mode & write_mask != 0 { 'w' } else { '-' };
+    let execute = if mode & execute_mask != 0 { 'x' } else { '-' };
+
+    format!("{read}{write}{execute}")
+}
+
 fn main() {
     if let Err(e) = run(Args::parse()) {
         eprintln!("{e}");
@@ -74,7 +84,7 @@ fn main() {
 
 #[cfg(test)]
 mod test {
-    use super::find_files;
+    use super::{find_files, mk_triple, Owner};
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -217,7 +227,6 @@ mod test {
         long_match(dir_line, "tests/inputs/dir", "drwxr-xr-x", None);
     }
 
-    #[cfg(any())]
     #[test]
     fn test_mk_triple() {
         assert_eq!(mk_triple(0o751, Owner::User), "rwx");
