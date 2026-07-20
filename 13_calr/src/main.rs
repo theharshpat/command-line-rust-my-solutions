@@ -3,10 +3,36 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 #[command(version, about = "Rust version of `cal`")]
-pub struct Args {}
+pub struct Args {
+    /// Year
+    #[arg(value_name = "YEAR", value_parser = clap::value_parser!(i32).range(1..=9999))]
+    year: Option<i32>,
+
+    /// Month
+    #[arg(short, value_name = "MONTH")]
+    month: Option<String>,
+
+    /// Display the current year
+    #[arg(
+        short = 'y',
+        long = "year",
+        conflicts_with_all = ["month", "year"]
+    )]
+    whole_year: bool,
+}
 
 fn run(args: Args) -> Result<()> {
-    println!("{args:#?}");
+    let mode = if args.whole_year {
+        "current whole year"
+    } else if args.month.is_some() {
+        "specified month"
+    } else if args.year.is_some() {
+        "specified whole year"
+    } else {
+        "current month"
+    };
+
+    println!("{mode}");
     Ok(())
 }
 
