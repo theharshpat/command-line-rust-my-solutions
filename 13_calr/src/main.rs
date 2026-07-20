@@ -1,4 +1,5 @@
 use anyhow::Result;
+use ansi_term::Style;
 use chrono::{Datelike, NaiveDate};
 use clap::Parser;
 
@@ -96,13 +97,18 @@ fn format_month(
     year: i32,
     month: u32,
     print_year: bool,
-    _today: NaiveDate,
+    today: NaiveDate,
 ) -> Vec<String> {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let mut cells = vec!["  ".to_string(); first_day.weekday().num_days_from_sunday() as usize];
 
     for day in 1..=last_day_in_month(year, month).day() {
-        cells.push(format!("{day:>2}"));
+        let cell = format!("{day:>2}");
+        if (year, month, day) == (today.year(), today.month(), today.day()) {
+            cells.push(Style::new().reverse().paint(cell).to_string());
+        } else {
+            cells.push(cell);
+        }
     }
 
     while cells.len() % 7 != 0 {
