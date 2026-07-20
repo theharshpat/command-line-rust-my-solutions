@@ -1,5 +1,5 @@
-use anyhow::Result;
 use ansi_term::Style;
+use anyhow::Result;
 use chrono::{Datelike, Local, NaiveDate};
 use clap::Parser;
 
@@ -50,8 +50,8 @@ fn run(args: Args) -> Result<()> {
         return Ok(());
     }
 
-    if args.month.is_none() && args.year.is_some() {
-        println!("{}", format_year(args.year.unwrap(), today).join("\n"));
+    if let (None, Some(year)) = (args.month, args.year) {
+        println!("{}", format_year(year, today).join("\n"));
         return Ok(());
     }
 
@@ -119,12 +119,7 @@ fn last_day_in_month(year: i32, month: u32) -> NaiveDate {
         .unwrap()
 }
 
-fn format_month(
-    year: i32,
-    month: u32,
-    print_year: bool,
-    today: NaiveDate,
-) -> Vec<String> {
+fn format_month(year: i32, month: u32, print_year: bool, today: NaiveDate) -> Vec<String> {
     let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
     let mut cells = vec!["  ".to_string(); first_day.weekday().num_days_from_sunday() as usize];
 
@@ -137,7 +132,7 @@ fn format_month(
         }
     }
 
-    while cells.len() % 7 != 0 {
+    while !cells.len().is_multiple_of(7) {
         cells.push("  ".to_string());
     }
 
@@ -146,7 +141,10 @@ fn format_month(
     } else {
         MONTHS[(month - 1) as usize].to_string()
     };
-    let mut lines = vec![format!("{title:^20}  "), "Su Mo Tu We Th Fr Sa  ".to_string()];
+    let mut lines = vec![
+        format!("{title:^20}  "),
+        "Su Mo Tu We Th Fr Sa  ".to_string(),
+    ];
 
     lines.extend(cells.chunks(7).map(|week| format!("{}  ", week.join(" "))));
 
