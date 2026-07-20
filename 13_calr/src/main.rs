@@ -43,21 +43,45 @@ pub struct Args {
 }
 
 fn run(args: Args) -> Result<()> {
+    let today = Local::now().date_naive();
+
     if args.whole_year {
-        println!("current whole year");
+        println!("{}", format_year(today.year(), today).join("\n"));
         return Ok(());
     }
 
     if args.month.is_none() && args.year.is_some() {
-        println!("specified whole year");
+        println!("{}", format_year(args.year.unwrap(), today).join("\n"));
         return Ok(());
     }
 
-    let today = Local::now().date_naive();
     let year = args.year.unwrap_or(today.year());
     let month = args.month.unwrap_or(today.month());
     println!("{}", format_month(year, month, true, today).join("\n"));
     Ok(())
+}
+
+fn format_year(year: i32, today: NaiveDate) -> Vec<String> {
+    let months: Vec<_> = (1..=12)
+        .map(|month| format_month(year, month, false, today))
+        .collect();
+    let mut lines = vec![format!("{year:>32}")];
+
+    for (quarter_index, months_in_quarter) in months.chunks(3).enumerate() {
+        for line_num in 0..8 {
+            lines.push(
+                months_in_quarter
+                    .iter()
+                    .map(|month| month[line_num].as_str())
+                    .collect(),
+            );
+        }
+        if quarter_index < 3 {
+            lines.push(String::new());
+        }
+    }
+
+    lines
 }
 
 fn parse_month(month: String) -> Result<u32> {
