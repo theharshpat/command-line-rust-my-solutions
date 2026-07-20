@@ -20,8 +20,13 @@ pub struct Args {
 }
 
 fn run(args: Args) -> Result<()> {
-    find_files(&args.paths, args.all)?;
-    println!("{args:#?}");
+    let files = find_files(&args.paths, args.all)?;
+
+    if !args.long {
+        for path in files {
+            println!("{}", path.display());
+        }
+    }
     Ok(())
 }
 
