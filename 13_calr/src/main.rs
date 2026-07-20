@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use clap::Parser;
 
 const MONTHS: [&str; 12] = [
@@ -90,6 +90,26 @@ fn last_day_in_month(year: i32, month: u32) -> NaiveDate {
         .unwrap()
         .pred_opt()
         .unwrap()
+}
+
+fn format_month(
+    year: i32,
+    month: u32,
+    _print_year: bool,
+    _today: NaiveDate,
+) -> Vec<String> {
+    let first_day = NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+    let mut cells = vec!["  ".to_string(); first_day.weekday().num_days_from_sunday() as usize];
+
+    for day in 1..=last_day_in_month(year, month).day() {
+        cells.push(format!("{day:>2}"));
+    }
+
+    while cells.len() % 7 != 0 {
+        cells.push("  ".to_string());
+    }
+
+    cells.chunks(7).map(|week| week.join(" ")).collect()
 }
 
 fn main() {
