@@ -1,5 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
+use std::fs;
+use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
 #[command(version, about = "Rust version of `ls`")]
@@ -18,8 +20,41 @@ pub struct Args {
 }
 
 fn run(args: Args) -> Result<()> {
+    find_files(&args.paths, args.all)?;
     println!("{args:#?}");
     Ok(())
+}
+
+fn find_files(paths: &[String], show_hidden: bool) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+
+    for path in paths {
+        let path = PathBuf::from(path);
+        let metadata = match path.metadata() {
+            Ok(metadata) => metadata,
+            Err(err) => {
+                eprintln!("{}: {err}", path.display());
+                continue;
+            }
+        };
+
+        if metadata.is_file() {
+            files.push(path);
+        } else if metadata.is_dir() {
+            match fs::read_dir(&path) {
+                Ok(entries) => {
+                    for entry in entries.flatten() {
+                        if show_hidden || !entry.file_name().to_string_lossy().starts_with('.') {
+                            files.push(entry.path());
+                        }
+                    }
+                }
+                Err(err) => eprintln!("{}: {err}", path.display()),
+            }
+        }
+    }
+
+    Ok(files)
 }
 
 fn main() {
@@ -29,11 +64,10 @@ fn main() {
     }
 }
 
-#[cfg(any())]
+#[cfg(test)]
 mod test {
-    use super::{Owner, find_files, format_mode, format_output, mk_triple};
+    use super::find_files;
     use pretty_assertions::assert_eq;
-    use std::path::PathBuf;
 
     #[test]
     fn test_find_files() {
@@ -110,6 +144,7 @@ mod test {
         );
     }
 
+    #[cfg(any())]
     fn long_match(
         line: &str,
         expected_name: &str,
@@ -131,6 +166,7 @@ mod test {
         assert_eq!(display_name, &expected_name);
     }
 
+    #[cfg(any())]
     #[test]
     fn test_format_output_one() {
         let bustle_path = "tests/inputs/bustle.txt";
@@ -147,6 +183,7 @@ mod test {
         long_match(line1, bustle_path, "-rw-r--r--", Some("193"));
     }
 
+    #[cfg(any())]
     #[test]
     fn test_format_output_two() {
         let res = format_output(&[
@@ -172,6 +209,7 @@ mod test {
         long_match(dir_line, "tests/inputs/dir", "drwxr-xr-x", None);
     }
 
+    #[cfg(any())]
     #[test]
     fn test_mk_triple() {
         assert_eq!(mk_triple(0o751, Owner::User), "rwx");
@@ -180,6 +218,7 @@ mod test {
         assert_eq!(mk_triple(0o600, Owner::Other), "---");
     }
 
+    #[cfg(any())]
     #[test]
     fn test_format_mode() {
         assert_eq!(format_mode(0o755), "rwxr-xr-x");
