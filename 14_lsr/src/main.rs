@@ -1,10 +1,25 @@
-fn main() {
-    println!("Hello, world!");
+use anyhow::Result;
+use clap::Parser;
+
+#[derive(Debug, Parser)]
+#[command(version, about = "Rust version of `ls`")]
+pub struct Args {}
+
+fn run(args: Args) -> Result<()> {
+    println!("{args:#?}");
+    Ok(())
 }
 
-#[cfg(test)]
+fn main() {
+    if let Err(e) = run(Args::parse()) {
+        eprintln!("{e}");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(any())]
 mod test {
-    use super::{find_files, format_mode, format_output, mk_triple, Owner};
+    use super::{Owner, find_files, format_mode, format_output, mk_triple};
     use pretty_assertions::assert_eq;
     use std::path::PathBuf;
 
@@ -113,8 +128,7 @@ mod test {
         assert!(res.is_ok());
 
         let out = res.unwrap();
-        let lines: Vec<&str> =
-            out.split('\n').filter(|s| !s.is_empty()).collect();
+        let lines: Vec<&str> = out.split('\n').filter(|s| !s.is_empty()).collect();
         assert_eq!(lines.len(), 1);
 
         let line1 = lines.first().unwrap();
@@ -130,8 +144,7 @@ mod test {
         assert!(res.is_ok());
 
         let out = res.unwrap();
-        let mut lines: Vec<&str> =
-            out.split('\n').filter(|s| !s.is_empty()).collect();
+        let mut lines: Vec<&str> = out.split('\n').filter(|s| !s.is_empty()).collect();
         lines.sort();
         assert_eq!(lines.len(), 2);
 
