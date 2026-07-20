@@ -3,7 +3,19 @@ use clap::Parser;
 
 #[derive(Debug, Parser)]
 #[command(version, about = "Rust version of `ls`")]
-pub struct Args {}
+pub struct Args {
+    /// Files or directories to list
+    #[arg(default_value = ".", value_name = "PATH")]
+    paths: Vec<String>,
+
+    /// Use a long listing format
+    #[arg(short, long)]
+    long: bool,
+
+    /// Show hidden directory entries
+    #[arg(short, long)]
+    all: bool,
+}
 
 fn run(args: Args) -> Result<()> {
     println!("{args:#?}");
