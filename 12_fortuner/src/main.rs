@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use rand::{SeedableRng, prelude::IndexedRandom, rngs::StdRng};
+use regex::RegexBuilder;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -34,8 +35,18 @@ struct Fortune {
 fn run(args: Args) -> Result<()> {
     let files = find_files(&args.sources)?;
     let fortunes = read_fortunes(&files)?;
+    let pattern = args
+        .pattern
+        .as_ref()
+        .map(|pattern| {
+            RegexBuilder::new(pattern)
+                .case_insensitive(args.insensitive)
+                .build()
+                .map_err(|_| anyhow::anyhow!(r#"Invalid --pattern "{pattern}""#))
+        })
+        .transpose()?;
 
-    if args.pattern.is_none() {
+    if pattern.is_none() {
         if let Some(fortune) = pick_fortune(&fortunes, args.seed) {
             println!("{fortune}");
         } else {
