@@ -1,6 +1,6 @@
 use anyhow::Result;
 use ansi_term::Style;
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, Local, NaiveDate};
 use clap::Parser;
 
 const MONTHS: [&str; 12] = [
@@ -43,18 +43,20 @@ pub struct Args {
 }
 
 fn run(args: Args) -> Result<()> {
-    let mode = if args.whole_year {
-        "current whole year"
-    } else if let Some(month) = args.month {
-        println!("specified month: {}", MONTHS[(month - 1) as usize]);
+    if args.whole_year {
+        println!("current whole year");
         return Ok(());
-    } else if args.year.is_some() {
-        "specified whole year"
-    } else {
-        "current month"
-    };
+    }
 
-    println!("{mode}");
+    if args.month.is_none() && args.year.is_some() {
+        println!("specified whole year");
+        return Ok(());
+    }
+
+    let today = Local::now().date_naive();
+    let year = args.year.unwrap_or(today.year());
+    let month = args.month.unwrap_or(today.month());
+    println!("{}", format_month(year, month, true, today).join("\n"));
     Ok(())
 }
 
