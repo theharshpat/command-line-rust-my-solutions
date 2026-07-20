@@ -46,14 +46,25 @@ fn run(args: Args) -> Result<()> {
         })
         .transpose()?;
 
-    if pattern.is_none() {
+    if let Some(pattern) = pattern {
+        let mut source = None;
+
+        for fortune in fortunes
+            .iter()
+            .filter(|fortune| pattern.is_match(&fortune.text))
+        {
+            if source.as_deref() != Some(fortune.source.as_str()) {
+                eprintln!("({})\n%", fortune.source);
+                source = Some(fortune.source.clone());
+            }
+            println!("{}\n%", fortune.text);
+        }
+    } else {
         if let Some(fortune) = pick_fortune(&fortunes, args.seed) {
             println!("{fortune}");
         } else {
             println!("No fortunes found");
         }
-    } else {
-        println!("{args:#?}");
     }
     Ok(())
 }
