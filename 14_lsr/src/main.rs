@@ -1,9 +1,10 @@
 use anyhow::Result;
+use chrono::{DateTime, Local};
 use clap::Parser;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
-use std::time::UNIX_EPOCH;
+use users::{get_group_by_gid, get_user_by_uid};
 
 mod owner;
 pub use owner::Owner;
@@ -92,14 +93,21 @@ fn format_output(paths: &[PathBuf]) -> Result<String> {
     for path in paths {
         let metadata = path.metadata()?;
         let file_type = if metadata.is_dir() { 'd' } else { '-' };
-        let modified = metadata.modified()?.duration_since(UNIX_EPOCH)?.as_secs();
+        let user = get_user_by_uid(metadata.uid())
+            .map(|user| user.name().to_string_lossy().into_owned())
+            .unwrap_or_else(|| metadata.uid().to_string());
+        let group = get_group_by_gid(metadata.gid())
+            .map(|group| group.name().to_string_lossy().into_owned())
+            .unwrap_or_else(|| metadata.gid().to_string());
+        let modified: DateTime<Local> = metadata.modified()?.into();
+        let modified = modified.format("%b %d %y %H:%M");
 
         output.push_str(&format!(
             "{file_type}{} {} {} {} {} {} {}\n",
             format_mode(metadata.mode()),
             metadata.nlink(),
-            metadata.uid(),
-            metadata.gid(),
+            user,
+            group,
             metadata.len(),
             modified,
             path.display(),
