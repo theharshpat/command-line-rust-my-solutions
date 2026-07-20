@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use rand::{SeedableRng, prelude::IndexedRandom, rngs::StdRng};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -32,8 +33,17 @@ struct Fortune {
 
 fn run(args: Args) -> Result<()> {
     let files = find_files(&args.sources)?;
-    read_fortunes(&files)?;
-    println!("{args:#?}");
+    let fortunes = read_fortunes(&files)?;
+
+    if args.pattern.is_none() {
+        if let Some(fortune) = pick_fortune(&fortunes, args.seed) {
+            println!("{fortune}");
+        } else {
+            println!("No fortunes found");
+        }
+    } else {
+        println!("{args:#?}");
+    }
     Ok(())
 }
 
@@ -106,6 +116,17 @@ fn read_fortunes(paths: &[PathBuf]) -> Result<Vec<Fortune>> {
     Ok(fortunes)
 }
 
+fn pick_fortune(fortunes: &[Fortune], seed: Option<u64>) -> Option<String> {
+    match seed {
+        Some(seed) => {
+            let mut rng = StdRng::seed_from_u64(seed);
+            fortunes.choose(&mut rng)
+        }
+        None => fortunes.choose(&mut rand::rng()),
+    }
+    .map(|fortune| fortune.text.clone())
+}
+
 fn main() {
     if let Err(e) = run(Args::parse()) {
         eprintln!("{e}");
@@ -115,7 +136,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{find_files, read_fortunes};
+    use super::{Fortune, find_files, pick_fortune, read_fortunes};
     use std::path::PathBuf;
 
     #[test]
@@ -194,30 +215,30 @@ mod tests {
         assert_eq!(res.unwrap().len(), 11);
     }
 
-    //     #[test]
-    //     fn test_pick_fortune() {
-    //         // Create a slice of fortunes
-    //         let fortunes = &[
-    //             Fortune {
-    //                 source: "fortunes".to_string(),
-    //                 text: "You cannot achieve the impossible without \
-    //                       attempting the absurd."
-    //                     .to_string(),
-    //             },
-    //             Fortune {
-    //                 source: "fortunes".to_string(),
-    //                 text: "Assumption is the mother of all screw-ups.".to_string(),
-    //             },
-    //             Fortune {
-    //                 source: "fortunes".to_string(),
-    //                 text: "Neckties strangle clear thinking.".to_string(),
-    //             },
-    //         ];
+    #[test]
+    fn test_pick_fortune() {
+        // Create a slice of fortunes
+        let fortunes = &[
+            Fortune {
+                source: "fortunes".to_string(),
+                text: "You cannot achieve the impossible without \
+                        attempting the absurd."
+                    .to_string(),
+            },
+            Fortune {
+                source: "fortunes".to_string(),
+                text: "Assumption is the mother of all screw-ups.".to_string(),
+            },
+            Fortune {
+                source: "fortunes".to_string(),
+                text: "Neckties strangle clear thinking.".to_string(),
+            },
+        ];
 
-    //         // Pick a fortune with a seed
-    //         assert_eq!(
-    //             pick_fortune(fortunes, Some(1)).unwrap(),
-    //             "Neckties strangle clear thinking.".to_string()
-    //         );
-    //     }
+        // Pick a fortune with a seed
+        assert_eq!(
+            pick_fortune(fortunes, Some(1)).unwrap(),
+            "Neckties strangle clear thinking.".to_string()
+        );
+    }
 }
