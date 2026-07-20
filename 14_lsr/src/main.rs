@@ -1,7 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
 use std::fs;
+use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
+use std::time::UNIX_EPOCH;
 
 mod owner;
 pub use owner::Owner;
@@ -75,6 +77,38 @@ fn mk_triple(mode: u32, owner: Owner) -> String {
     format!("{read}{write}{execute}")
 }
 
+fn format_mode(mode: u32) -> String {
+    format!(
+        "{}{}{}",
+        mk_triple(mode, Owner::User),
+        mk_triple(mode, Owner::Group),
+        mk_triple(mode, Owner::Other),
+    )
+}
+
+fn format_output(paths: &[PathBuf]) -> Result<String> {
+    let mut output = String::new();
+
+    for path in paths {
+        let metadata = path.metadata()?;
+        let file_type = if metadata.is_dir() { 'd' } else { '-' };
+        let modified = metadata.modified()?.duration_since(UNIX_EPOCH)?.as_secs();
+
+        output.push_str(&format!(
+            "{file_type}{} {} {} {} {} {} {}\n",
+            format_mode(metadata.mode()),
+            metadata.nlink(),
+            metadata.uid(),
+            metadata.gid(),
+            metadata.len(),
+            modified,
+            path.display(),
+        ));
+    }
+
+    Ok(output)
+}
+
 fn main() {
     if let Err(e) = run(Args::parse()) {
         eprintln!("{e}");
@@ -84,8 +118,9 @@ fn main() {
 
 #[cfg(test)]
 mod test {
-    use super::{find_files, mk_triple, Owner};
+    use super::{find_files, format_mode, format_output, mk_triple, Owner};
     use pretty_assertions::assert_eq;
+    use std::path::PathBuf;
 
     #[test]
     fn test_find_files() {
@@ -162,7 +197,6 @@ mod test {
         );
     }
 
-    #[cfg(any())]
     fn long_match(
         line: &str,
         expected_name: &str,
@@ -184,7 +218,6 @@ mod test {
         assert_eq!(display_name, &expected_name);
     }
 
-    #[cfg(any())]
     #[test]
     fn test_format_output_one() {
         let bustle_path = "tests/inputs/bustle.txt";
@@ -201,7 +234,6 @@ mod test {
         long_match(line1, bustle_path, "-rw-r--r--", Some("193"));
     }
 
-    #[cfg(any())]
     #[test]
     fn test_format_output_two() {
         let res = format_output(&[
@@ -235,7 +267,6 @@ mod test {
         assert_eq!(mk_triple(0o600, Owner::Other), "---");
     }
 
-    #[cfg(any())]
     #[test]
     fn test_format_mode() {
         assert_eq!(format_mode(0o755), "rwxr-xr-x");
